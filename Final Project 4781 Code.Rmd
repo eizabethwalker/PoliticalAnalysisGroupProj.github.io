@@ -1,0 +1,117 @@
+---
+title: 'Association between Functioning Government Index and Voter Turnout: Does a
+  Higher Functioning Government Index Experience Higher Voter Turnout'
+output: html_document
+date: "2025-04-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(ggplot2)
+```
+```{r, echo=FALSE}
+FGI<-read.csv("functioning-government-index-eiu.csv", header= TRUE, stringsAsFactors = FALSE)
+VT<-read.csv("voter-turnout-of-voting-age-population.csv", header=TRUE, stringsAsFactors=FALSE)
+
+#remove any columns in VT with NA or empty names
+clean_names <- function(df) {
+  invalid_names <- is.na(names(VT)) |
+    names(VT) == ""
+  if (any(invalid_names, na.rm = TRUE)) {
+    message("Removing columns with invalid names: ", paste(ifelse(is.na(names(VT)[invalid_names]), "NA", names(VT)[invalid_names]), collapse = ", "))
+  df <- df[, !invalid_names, drop = FALSE]
+  }
+  return(df)
+}
+FGI <- clean_names(FGI)
+VT<- clean_names(VT)
+
+if (ncol(FGI) >= 4) {
+  FGI <- FGI[, 1:4]
+} else {
+  stop("FGI does not have at least 4 columns.")
+}
+if (ncol(VT) >= 4) {
+  VT <- VT[, 1:4]
+} else {
+  stop("VT does not have at least 4 columns.")
+}
+
+#establish column names for future use
+colnames(FGI)<- c("Entity","Code","Year","Functioning_government")
+colnames(VT)<-c("Entity","Code","Year","Voter_turnout_of_voting_age_population")
+
+```
+```{r, echo=FALSE, results='asis'}
+#create density plot for GDP across country-year
+cat("Density Plot of Functioning Government Index across Country-Years (1990-2023) \n\n")
+cat("The following visualizations depict the distributions of Functioning Government Index and Voter_turnout_of_voting_age_population across country-year.\n\n")
+```
+```{r,echo=FALSE}
+ggplot(FGI, aes(x=Functioning_government))+
+  geom_density(color='black')+
+  labs(title="Density Plot of Functioning Government Index across country-years", x="Functioning Government", y="Density")+
+  theme_minimal()
+```
+```{r, echo=FALSE, results='asis'}
+cat("\n\nThe above figure displays a density plot of Functioning Government Index, as displayed, the range is wide starting at zero and ending at 10 with one mode, in a positively skewed manner. The data suggests that a majority of countries lie above 5.0 Functioning Government Index in 'High Functioning Government Index'.\n\n")
+```
+```{r, echo=FALSE, results='asis'}
+#create density plot for Voter_turnout_of_voting_age_population across country-year
+cat("Density Plot of Voter Turnout across Country-Years(1990-2023)\n\n")
+```
+```{r, echo=FALSE}
+ggplot(VT, aes(x= Voter_turnout_of_voting_age_population))+
+  geom_density(color='black')+
+  labs(title="Density Plot of Voter Turnout across country-years", x="Voter Turnout", y="Density")+
+  theme_minimal()
+```
+```{r, echo=FALSE, results='asis'}
+cat("\n\nThe second figure displays a density plot of Voter Turnout across country-year. The range exists from 0 to 200. The graph is positively skewed with the mode generally around 55.\n\n")
+```
+```{r, echo=FALSE, results='asis'}
+#Relationship
+cat("\n\nThe Relationship between Functioning Government Index and Voter Turnout")
+cat("In the following visualizations, the research question will be addressed with a regression line across the merged data sets.\n\n")
+
+```
+```{r, echo=FALSE}
+FGI<- FGI%>%
+  filter(!is.na(Entity)& Entity!= "OWID_WRL" & !is.na(Functioning_government))
+VT<- VT%>%
+  filter(!is.na(Entity)& Entity!= "OWID_WRL" & !is.na(Voter_turnout_of_voting_age_population))
+
+#merge the data on common columns: Entity, Code and Year
+
+merged_data<- inner_join(FGI, VT,by= c("Entity", "Code", "Year"))
+
+realData<- merged_data%>%
+  filter(complete.cases(Functioning_government, Voter_turnout_of_voting_age_population))
+
+# Plot with zoomed-out view
+ggplot(realData, aes(x = Functioning_government, y = Voter_turnout_of_voting_age_population)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +
+  theme_minimal() +
+  labs(
+    title = "Functioning Government Index vs. Voter Turnout",
+    x = "Functioning Government Index",
+    y = "Voter Turnout (Voting Age Population)"
+  )
+```
+```{r, echo=FALSE, results=='asis'}
+cor_test_result <- cor.test(realData$Functioning_government, 
+                            realData$Voter_turnout_of_voting_age_population,
+                            method = "pearson")
+
+# Print the result
+print(cor_test_result)
+cat("\n\nThere is a statistically significant positive relationship between the Functioning Government Index and voter turnout, but it is moderate in strength. Better-functioning governments tend to have higher voter turnout, but many other factors likely influence turnout as well.\n\n")
+model <- lm(Voter_turnout_of_voting_age_population ~ Functioning_government + as.factor(Entity) + as.factor(Year), data = realData)
+summary(model)
+
+
+
+```
+
